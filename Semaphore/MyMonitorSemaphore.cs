@@ -6,40 +6,48 @@ using System.Threading.Tasks;
 
 namespace Semaphore
 {
-     public class MyMonitorSemaphore : ISemaphore
+    public class MyMonitorSemaphore : ISemaphore
     {
         private int _count;
-        object locker = new();
-        private int totalCount;
+        static object locker = new();
 
         public MyMonitorSemaphore(int count)
         {
-            totalCount = count;
             _count = count;
         }
 
         public void Acquire()
         {
-            bool acquiredLock = _count < totalCount;
-            Monitor.Enter(locker, ref acquiredLock);
+            lock (locker)
+            {
+                if (_count > 0)
+                    _count--;
+                else if (_count == 0)
+                {
+                    Monitor.Wait(locker);
+                }
+            }
 
-            if (_count > 0)
-                _count--;
         }
 
         public int Release(int releaseCount)
         {
-            if (_count == releaseCount)
-                return _count;
+            lock (locker)
+            {
+                int result = _count;
+                Monitor.PulseAll(locker);
 
-            Monitor.Exit(locker);
-            _count++;
-            return _count;
+                _count++;
+                return result;
+            }
         }
 
         public bool TryAcquire()
         {
-            return _count > 0;
+            lock (locker)
+            {
+                return Monitor.TryEnter(locker);
+            }
         }
     }
 }
